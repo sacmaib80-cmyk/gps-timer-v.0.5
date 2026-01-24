@@ -302,7 +302,7 @@
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, "0");
       const day = String(d.getDate()).padStart(2, "0");
-      return ${y}-${m}-${day};
+      return `${y}-${m}-${day}`;
     }
 
     function formatHMS(ms) {
@@ -310,7 +310,7 @@
       const h = String(Math.floor(totalSec / 3600)).padStart(2, "0");
       const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2, "0");
       const s = String(totalSec % 60).padStart(2, "0");
-      return ${h}:${m}:${s};
+      return `${h}:${m}:${s}`;
     }
 
     function round1(n) {
@@ -436,7 +436,7 @@
       if (state.status === "running") label = "Running";
       if (state.status === "paused") label = "Paused";
       if (state.status === "stopped") label = "Stopped (report pending)";
-      el.statePill.innerHTML = <span>Status:</span> <strong>${label}</strong>;
+      el.statePill.innerHTML = `<span>Status:</span> <strong>${label}</strong>`;
     }
 
     function computeElapsedMs(now = Date.now()) {
@@ -457,7 +457,7 @@
       if (state.status === "idle") {
         el.timerHint.textContent = "Select a quest and press Start.";
       } else if (state.status === "running") {
-        el.timerHint.textContent = Logging to: ${state.startDateKey} • Category: ${state.selectedCategory};
+        el.timerHint.textContent = `Logging to: ${state.startDateKey} • Category: ${state.selectedCategory}`;
       } else if (state.status === "paused") {
         el.timerHint.textContent = "Paused. Resume or Stop.";
       } else if (state.status === "stopped") {
@@ -483,18 +483,18 @@
 
     function renderToday() {
       const todayKey = localDateKey();
-      el.todayPill.innerHTML = <span>Today:</span> <strong>${todayKey}</strong>;
+      el.todayPill.innerHTML = `<span>Today:</span> <strong>${todayKey}</strong>`;
 
       const total = calcDayTotal(todayKey);
       el.todayTotal.textContent = total.toFixed(1);
 
       const pct = Math.max(0, Math.min(100, (total / 100) * 100));
-      el.progressFill.style.width = ${pct}%;
+      el.progressFill.style.width = `${pct}%`;
 
       // List items
       const log = getDayLog(todayKey).slice().reverse();
       if (log.length === 0) {
-        el.todayList.innerHTML = <div class="muted">No reports yet.</div>;
+        el.todayList.innerHTML = `<div class="muted">No reports yet.</div>`;
         return;
       }
       el.todayList.innerHTML = log.map(item => {
@@ -505,7 +505,7 @@
         const bonus = Number(item.qualityBonus || 0);
         const questScore = Number(item.questScore || 0);
         const capNote = (baseMins < mins)
-          ?  • base cap: counted ${baseMins}/${mins} min
+          ? ` • base cap: counted ${baseMins}/${mins} min`
           : "";
         return `
           <div class="item">
@@ -621,4 +621,193 @@
       applyBonusRule(minutes);
 
       // Cap hint (base cap per category per day)
-      const used = calcCategoryBaseMinutesUsed(state.startDateKey, state.selected
+      const used = calcCategoryBaseMinutesUsed(state.startDateKey, state.selectedCategory);
+      const remaining = Math.max(0, 60 - used);
+      el.capHint.textContent = `Base cap per category/day: 60 min. Already used today in "${state.selectedCategory}": ${used} min. Remaining: ${remaining} min.`;
+
+      setReportVisible(true);
+      clearSubmitMessages();
+      updateUI();
+    }
+
+    function applyBonusRule(minutes) {
+      if (minutes < 30) {
+        el.qualityBonus.value = "0";
+        el.qualityBonus.disabled = true;
+        el.bonusRuleHint.textContent = "Quality bonus locked (requires ≥ 30 minutes).";
+      } else {
+        el.qualityBonus.disabled = false;
+        el.bonusRuleHint.textContent = "Quality bonus available (time ≥ 30 minutes).";
+      }
+    }
+
+    function discardReport() {
+      // Reset to idle without logging
+      state.status = "idle";
+      state.startTs = null;
+      state.elapsedBefore = 0;
+      state.lastElapsedMs = 0;
+      state.startDateKey = null;
+      saveState();
+
+      setReportVisible(false);
+      clearSubmitMessages();
+      updateUI();
+    }
+
+    function submitReport() {
+      clearSubmitMessages();
+
+      const minutes = Number(el.reportMinutes.value);
+      if (!Number.isFinite(minutes) || minutes <= 0) {
+        el.submitWarn.style.display = "block";
+        el.submitWarn.textContent = "Minutes must be > 0.";
+        return;
+      }
+
+      // Enforce bonus rule (>=30 mins only)
+      applyBonusRule(minutes);
+      const bonus = el.qualityBonus.disabled ? 0 : Number(el.qualityBonus.value || 0);
+
+      const dateKey = state.startDateKey || localDateKey();
+
+      // Base cap per category/day: 60 minutes max counted
+      const used = calcCategoryBaseMinutesUsed(dateKey, state.selectedCategory);
+      const remaining = Math.max(0, 60 - used);
+      const baseMinutesUsed = Math.min(minutes, remaining);
+      const baseScore = baseMinutesUsed * 0.4;
+
+      const questScore = baseScore + bonus;
+
+      const entry = {
+        ts: Date.now(),
+        dateKey,
+        category: state.selectedCategory,
+        questName: state.questName || "",
+        minutesSpent: minutes,
+        baseMinutesUsed,
+        baseScore: round1(baseScore),
+        qualityBonus: bonus,
+        questScore: round1(questScore),
+        notes: el.notes.value || ""
+      };
+
+      const log = getDayLog(dateKey);
+      log.push(entry);
+      setDayLog(dateKey, log);
+
+      // Feedback
+      el.submitOk.style.display = "block";
+      const capMsg = (baseMinutesUsed < minutes)
+        ? ` Base was capped (counted ${baseMinutesUsed}/${minutes} min).`
+        : "";
+      el.submitOk.textContent =
+        `Saved! +${round1(questScore).toFixed(1)} points.${capMsg}`;
+
+      // Reset session
+      el.notes.value = "";
+      setTimeout(() => {
+        discardReport();  // back to idle
+        renderToday();    // refresh today's panel
+      }, 400);
+    }
+
+    function resetToday() {
+      const todayKey = localDateKey();
+      const ok = confirm(`Reset ALL reports for today (${todayKey})? This cannot be undone.`);
+      if (!ok) return;
+
+      localStorage.removeItem(KEY_LOG_PREFIX + todayKey);
+
+      // If a quest session was started today and pending, keep it (timer state separate)
+      renderToday();
+      showWarn("Today's data cleared.");
+    }
+
+    function updateUI() {
+      updateStatePill();
+      renderTimer();
+      renderControls();
+      renderToday();
+
+      // Report visible only when stopped
+      setReportVisible(state.status === "stopped");
+
+      if (state.status !== "stopped") {
+        // keep report clean when hidden
+        el.reportMinutes.value = "";
+        el.qualityBonus.value = "0";
+        el.qualityBonus.disabled = false;
+        el.capHint.textContent = "";
+        el.bonusRuleHint.textContent = "";
+      }
+    }
+
+    // -------------------------
+    // Wire events
+    // -------------------------
+    el.startBtn.addEventListener("click", startQuest);
+    el.pauseBtn.addEventListener("click", pauseQuest);
+    el.resumeBtn.addEventListener("click", resumeQuest);
+    el.stopBtn.addEventListener("click", stopQuest);
+
+    el.reportMinutes.addEventListener("input", () => {
+      const minutes = Number(el.reportMinutes.value);
+      if (Number.isFinite(minutes)) applyBonusRule(minutes);
+    });
+
+    el.submitReportBtn.addEventListener("click", submitReport);
+    el.discardBtn.addEventListener("click", discardReport);
+    el.resetTodayBtn.addEventListener("click", resetToday);
+
+    // Keep draft selection in state when idle
+    el.category.addEventListener("change", () => {
+      if (state.status === "idle") {
+        state.selectedCategory = el.category.value;
+        saveState();
+      }
+    });
+    el.questName.addEventListener("input", () => {
+      if (state.status === "idle") {
+        state.questName = el.questName.value || "";
+        saveState();
+      }
+    });
+
+    // -------------------------
+    // Boot
+    // -------------------------
+    function boot() {
+      loadState();
+
+      // If restored and running, keep ticking
+      if (state.status === "running") {
+        // If startTs missing (corrupt), fallback to paused
+        if (!state.startTs) {
+          state.status = "paused";
+          state.startTs = null;
+          saveState();
+        }
+        startTick();
+      }
+
+      // If restored paused/stopped, no tick needed but we can tick lightly to keep today's UI fresh
+      startTick();
+
+      // Sync inputs from state in idle
+      if (state.status === "idle") {
+        el.category.value = state.selectedCategory || "Learning";
+        el.questName.value = state.questName || "";
+      } else {
+        // For non-idle, force inputs to show selected quest
+        el.category.value = state.selectedCategory || el.category.value;
+        el.questName.value = state.questName || "";
+      }
+
+      updateUI();
+    }
+
+    boot();
+  </script>
+</body>
+</html>
