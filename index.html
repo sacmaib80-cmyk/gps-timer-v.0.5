@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>QPS Timer v0.3.3 (Stable + Help)</title>
+  <title>QPS Timer v0.4 (Stable + Help)</title>
 
   <style>
 /* =========================================================
@@ -455,7 +455,7 @@ select{
         <div class="topbarRow">
           <div class="brand">
             <h1>
-              QPS Timer v 0.3.3
+              QPS Timer v 0.4
               <button class="helpBtn" type="button" id="helpTopBtn" data-tip="top">?</button>
             </h1>
             <div class="sub" id="todayText">Today: ----</div>
@@ -508,6 +508,25 @@ select{
           </div>
 
           <div class="divider"></div>
+
+          <div class="divider"></div>
+
+<!-- ✅ NEW: TIME CUT (OPTIONAL) -->
+<div class="row two">
+  <div>
+    <label for="targetMinutes">ตัดเวลา (นาที) — ใส่หรือไม่ใส่ก็ได้</label>
+    <input id="targetMinutes" type="number" min="1" step="1" placeholder="เช่น 60 (ครบแล้วจะ Stop อัตโนมัติ)" />
+    <div class="hint" id="targetHint">ไม่ใส่ = timer วิ่งเรื่อยๆ</div>
+  </div>
+  <div>
+    <label for="targetMode">โหมดตัดเวลา</label>
+    <select id="targetMode">
+      <option value="hard">Hard stop (ถึงปุ๊บหยุดทันที)</option>
+      <option value="soft">Soft stop (เตือน แล้วหยุดใน 10 วิ)</option>
+    </select>
+    <div class="hint">Hard แนะนำสุด (ล็อกเควสจริง)</div>
+  </div>
+</div>
 
           <div class="timer" id="timerText">00:00:00</div>
           <div class="hint" id="timerHint">เลือกเควสแล้วกด Start</div>
@@ -938,6 +957,10 @@ const el = {
   onOverlay: document.getElementById("onOverlay"),
   openOnboardBtn: document.getElementById("openOnboardBtn"),
   okOnBtn: document.getElementById("okOnBtn"),
+
+    targetMinutes: document.getElementById("targetMinutes"),
+  targetHint: document.getElementById("targetHint"),
+  targetMode: document.getElementById("targetMode"),
 };
 
 /* =========================================================
@@ -951,6 +974,9 @@ let state = {
 
   selectedCategory: "Learning",
   questName: "",
+
+    targetMinutes: null,    // number | null
+  targetMode: "hard",     // "hard" | "soft"
 
   lastElapsedMs: 0,
 };
@@ -1004,6 +1030,14 @@ function renderControls(){
   const lock = state.status !== "idle";
   el.category.disabled = lock;
   el.questName.disabled = lock;
+
+    if(el.targetMinutes) el.targetMinutes.disabled = lock;
+  if(el.targetMode) el.targetMode.disabled = lock;
+
+  if(state.status==="idle"){
+    if(el.targetMinutes) el.targetMinutes.value = state.targetMinutes ? String(state.targetMinutes) : "";
+    if(el.targetMode) el.targetMode.value = state.targetMode || "hard";
+  }
 
   if(state.status==="idle"){
     el.category.value = state.selectedCategory || "Learning";
@@ -1079,9 +1113,46 @@ function updateUI(){
 /* tick */
 function startTick(){
   if(tickHandle) return;
-  tickHandle = setInterval(()=>{ renderTimer(); }, 250);
+  tickHandle = setInterval(()=>{
+  renderTimer();
+  autoStopIfReached();
+}, 250);
 }
+let softStopArmed = false;
+let softStopAt = 0;
 
+function autoStopIfReached(){
+  if(state.status !== "running") return;
+  if(!state.targetMinutes) return;
+
+  const elapsedMs = computeElapsedMs();
+  const targetMs = state.targetMinutes * 60000;
+
+  // ยังไม่ถึง
+  if(elapsedMs < targetMs) return;
+
+  // ถึงแล้ว
+  if(state.targetMode === "soft"){
+    if(!softStopArmed){
+      softStopArmed = true;
+      softStopAt = Date.now() + 10000; // 10 วิ
+      showTimerWarn(`ครบ ${state.targetMinutes} นาทีแล้ว — จะหยุดอัตโนมัติใน 10 วิ`);
+      return;
+    }
+    if(Date.now() < softStopAt) return;
+  }
+
+  // HARD หรือ soft ครบเวลา
+  softStopArmed = false;
+  softStopAt = 0;
+
+  // ปรับ elapsed ให้ “พอดีเป๊ะ” แล้ว stopQuest()
+  state.elapsedBefore = targetMs;
+  state.startTs = null;
+
+  // เรียก stopQuest แบบเดิม
+  stopQuest();
+}
 /* =========================================================
   RULES (bonus lock + cap hint)
 ========================================================= */
@@ -1137,7 +1208,10 @@ function startQuest(){
   state.startTs = Date.now();
   state.elapsedBefore = 0;
   state.lastElapsedMs = 0;
-
+  // ✅ NEW: read target minutes (optional)
+  const tm = el.targetMinutes ? Number(el.targetMinutes.value) : NaN;
+  state.targetMinutes = (Number.isFinite(tm) && tm > 0) ? Math.round(tm) : null;
+  state.targetMode = el.targetMode ? (el.targetMode.value || "hard") : "hard";
   saveState();
   clearSubmitMessages();
   setReportVisible(false);
@@ -1151,11 +1225,15 @@ function pauseQuest(){
   state.elapsedBefore = computeElapsedMs(now);
   state.startTs = null;
   state.status = "paused";
+  softStopArmed = false;
+softStopAt = 0;
   saveState();
   updateUI();
 }
 
 function resumeQuest(){
+  softStopArmed = false;
+softStopAt = 0;
   if(state.status!=="paused") return;
   state.status="running";
   state.startTs=Date.now();
@@ -1198,6 +1276,8 @@ function discardReport(){
   saveState();
   setReportVisible(false);
   clearSubmitMessages();
+  softStopArmed = false;
+softStopAt = 0;
   updateUI();
 }
 
@@ -1263,6 +1343,8 @@ function submitReport(){
 }
 
 function resetToday(){
+  softStopArmed = false;
+softStopAt = 0;
   const todayKey = localDateKey();
   const ok = confirm(`Reset วันนี้ (${todayKey})? รายการวันนี้จะหายหมด`);
   if(!ok) return;
