@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>QPS Timer v0.4.2 (update UX set time)</title>
+  <title>QPS Timer v0.5 (Rebuild v4)</title>
 
   <style>
     :root{
@@ -47,9 +47,7 @@
       overflow-y:auto;
       -webkit-overflow-scrolling: touch;
       padding: 14px 12px 56px;
-
-      /* ✅ tooltip anchor */
-      position: relative;
+      position: relative; /* ✅ สำคัญ: ให้ tooltip absolute อิงกับ .app */
     }
     .container{ max-width: 860px; margin: 0 auto; }
 
@@ -270,10 +268,8 @@
       background: rgba(96,165,250,.12);
       border-color: rgba(96,165,250,.24);
     }
-
-    /* ✅ FIXED -> ABSOLUTE within .app */
     .tooltip{
-      position: absolute;
+      position: absolute; /* ✅ เปลี่ยนจาก fixed -> absolute (อยู่ใน .app แล้ว) */
       z-index: 9998;
       width: min(340px, calc(100vw - 24px));
       background: rgba(255,255,255,.98);
@@ -282,19 +278,15 @@
       box-shadow: 0 16px 36px rgba(2,6,23,.18);
       padding: 12px 12px 10px;
       display:none;
-      pointer-events: none;
     }
-    .tooltip.show{
-      display:block;
-      pointer-events: auto;
-    }
+    .tooltip.show{ display:block; }
     .tooltip .tTitle{ font-weight: 950; margin: 0 0 6px; }
     .tooltip .tBody{ margin:0; color: var(--muted); font-size: 12px; line-height:1.5; white-space:pre-line; }
     .tooltip .tActions{ display:flex; justify-content:flex-end; margin-top:10px; }
     .tooltip .tActions button{ padding:8px 10px; font-size:12px; border-radius: 12px; }
 
     .tipArrow{
-      position: absolute;
+      position: absolute; /* ✅ เปลี่ยนจาก fixed -> absolute (อยู่ใน .app แล้ว) */
       z-index: 9997;
       width: 14px; height: 14px;
       background: rgba(255,255,255,.98);
@@ -302,7 +294,6 @@
       border-top: 1px solid rgba(15,23,42,.16);
       transform: rotate(45deg);
       display:none;
-      pointer-events: none;
     }
     .tipArrow.show{ display:block; }
 
@@ -464,7 +455,7 @@
         <div class="topbarRow">
           <div class="brand">
             <h1>
-              QPS Timer v0.4.2
+              QPS Timer v0.5
               <button class="helpBtn" type="button" data-tip="top">?</button>
             </h1>
             <div class="sub" id="todayText">Today: ----</div>
@@ -483,7 +474,58 @@
           <button class="secondary" type="button" id="openOnboardBtn">✨ How to use</button>
         </div>
       </div>
+      <!-- MORNING GATE -->
+      <div class="section" id="sec-gate">
+        <div class="sectionHead">
+          <h2>Morning Gate <button class="helpBtn" type="button" data-tip="gate">?</button></h2>
+        </div>
 
+        <div class="card" id="gateCard">
+          <div class="row two">
+            <div>
+              <label for="gateLimitMin">Gate Limit (minutes)</label>
+              <input id="gateLimitMin" type="number" inputmode="numeric" min="1" max="180" step="1" placeholder="เช่น 10" />
+              <div class="hint">ตั้ง “เวลาที่ให้ตัวเองเริ่มเควสแรก” เช่น 10 นาทีหลังเปิดเว็บ</div>
+            </div>
+
+            <div>
+              <label for="gateMode">Gate Mode</label>
+              <select id="gateMode">
+                <option value="soft" selected>Soft (เตือน แล้วล็อกปุ่ม Start)</option>
+                <option value="hard">Hard (ล็อกทันทีเมื่อหมดเวลา)</option>
+              </select>
+              <div class="hint">ถ้าพลาด Gate → ต้องกด “Unlock ด้วยเหตุผล” ก่อนถึงจะ Start ได้</div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="progressWrap">
+            <div class="badge">Gate Status: <b id="gateStatus">Not started</b></div>
+            <div class="miniRight">
+              <button class="secondary smallBtn" type="button" id="gateStartBtn">Start Gate</button>
+              <button class="danger smallBtn" type="button" id="gateResetBtn">Reset Gate</button>
+            </div>
+          </div>
+
+          <div class="timer" style="font-size:34px;margin-top:10px" id="gateTimerText">00:00</div>
+          <div class="warnText" id="gateWarn" style="display:none;"></div>
+
+          <div class="divider"></div>
+
+          <div id="gateLockBox" style="display:none;">
+            <label for="gateReason">Unlock Reason (เขียนสั้นๆ แต่จริง)</label>
+            <input id="gateReason" placeholder="เช่น ตื่นสาย / รถติด / ปวดหัว" />
+            <div class="btns" style="margin-top:10px;grid-template-columns: 1fr 1fr;">
+              <button type="button" id="gateUnlockBtn">Unlock</button>
+              <button type="button" class="secondary" id="gateSnoozeBtn">Snooze 5 min</button>
+            </div>
+            <div class="hint">Unlock จะบันทึกลง Notes อัตโนมัติในเควสแรกของวัน</div>
+          </div>
+
+          <div class="ok" id="gateOk" style="display:none;"></div>
+        </div>
+      </div>
       <!-- TIMER -->
       <div class="section" id="sec-timer">
         <div class="sectionHead">
@@ -646,17 +688,19 @@
       </div>
 
     </div>
-  </div>
 
-  <!-- TOOLTIP -->
-  <div class="tooltip" id="tooltip">
-    <div class="tTitle" id="tipTitle">Tip</div>
-    <p class="tBody" id="tipBody"></p>
-    <div class="tActions">
-      <button class="secondary" type="button" id="tipCloseBtn">Close</button>
+    <!-- ✅ TOOLTIP (ย้ายมาไว้ใน .app เพื่อให้ absolute เกาะ scroll container) -->
+    <div class="tooltip" id="tooltip">
+      <div class="tTitle" id="tipTitle">Tip</div>
+      <p class="tBody" id="tipBody"></p>
+      <div class="tActions">
+        <button class="secondary" type="button" id="tipCloseBtn">Close</button>
+      </div>
     </div>
+    <div class="tipArrow" id="tipArrow"></div>
+    <!-- ✅ END TOOLTIP -->
+
   </div>
-  <div class="tipArrow" id="tipArrow"></div>
 
   <!-- HISTORY OVERLAY -->
   <div class="overlay" id="overlay">
@@ -974,8 +1018,23 @@ const el = {
   cutBody: document.getElementById("cutBody"),
   cutChip: document.getElementById("cutChip"),
   cutMinutes: document.getElementById("cutMinutes"),
-  cutMode: document.getElementById("cutMode"),
+    cutMode: document.getElementById("cutMode"),
+
+  // Morning Gate
+  gateLimitMin: document.getElementById("gateLimitMin"),
+  gateMode: document.getElementById("gateMode"),
+  gateStatus: document.getElementById("gateStatus"),
+  gateTimerText: document.getElementById("gateTimerText"),
+  gateWarn: document.getElementById("gateWarn"),
+  gateOk: document.getElementById("gateOk"),
+  gateStartBtn: document.getElementById("gateStartBtn"),
+  gateResetBtn: document.getElementById("gateResetBtn"),
+  gateLockBox: document.getElementById("gateLockBox"),
+  gateReason: document.getElementById("gateReason"),
+  gateUnlockBtn: document.getElementById("gateUnlockBtn"),
+  gateSnoozeBtn: document.getElementById("gateSnoozeBtn"),
 };
+
 
 /* =========================
   STATE
@@ -1164,7 +1223,10 @@ function updateUI(){
 function startTick(){
   if(tickHandle) clearInterval(tickHandle);
   tickHandle = setInterval(()=>{
+    // update timer text smoothly
     renderTimer();
+
+    // auto stop if cutting enabled
     if(state.status === "running" && state.cutEnabled && state.cutMinutes){
       const ms = computeElapsedMs();
       const targetMs = state.cutMinutes * 60000;
@@ -1181,9 +1243,11 @@ function startTick(){
           if(Date.now() < state.softDeadlineTs) return;
         }
 
+        // hard OR soft deadline reached
         state.softWarned = false;
         state.softDeadlineTs = 0;
 
+        // clamp elapsed to exact target
         state.elapsedBefore = targetMs;
         state.startTs = null;
         saveState();
@@ -1192,6 +1256,10 @@ function startTick(){
         stopQuest();
       }
     }
+        // Morning Gate tick
+    gateMaybeLock();
+    renderGate();
+    gateEnforceStartButton();
   }, 250);
 }
 
@@ -1231,6 +1299,7 @@ function startQuest(){
   state.elapsedBefore = 0;
   state.lastElapsedMs = 0;
 
+  // lock cutting at start
   state.cutMinutes = state.cutEnabled ? readCutMinutes() : null;
   state.cutMode = el.cutMode.value || "hard";
   state.softWarned = false;
@@ -1296,6 +1365,7 @@ function discardReport(){
   state.lastElapsedMs=0;
   state.startDateKey=null;
 
+  // keep cut settings persisted (user choice)
   state.softWarned = false;
   state.softDeadlineTs = 0;
 
@@ -1321,12 +1391,14 @@ function submitReport(){
   const dateKey = state.startDateKey || localDateKey();
   const qn = normQuestName(state.questName);
 
+  // duplicate guard
   if(isQuestNameDuplicateToday(dateKey, qn)){
     el.submitWarn.style.display="block";
     el.submitWarn.textContent="ชื่อเควสซ้ำในวันนี้แล้ว — เปลี่ยนชื่อ";
     return;
   }
 
+  // cap base minutes by quest name per day
   const used = calcQuestBaseMinutesUsed(dateKey, qn);
   const remaining = Math.max(0, RULES.baseCapPerQuestNamePerDay - used);
   const baseMinutesUsed = Math.min(minutes, remaining);
@@ -1346,7 +1418,13 @@ function submitReport(){
     baseScore: round1(baseScore),
     qualityBonus: bonus,
     questScore: round1(questScore),
-    notes: el.notes.value || ""
+    notes: (() => {
+  const extra = gateConsumeReasonIfAny();
+  const base = (el.notes.value || "").trim();
+  if(extra && base) return `${extra}\n${base}`;
+  if(extra) return extra;
+  return base;
+})()
   };
 
   const data = loadAll();
@@ -1528,7 +1606,7 @@ async function importFromFile(file){
 }
 
 /* =========================
-  TOOLTIP (FIXED)
+  TOOLTIP
 ========================= */
 const TIPS = {
   top:   { title: "ภาพรวม", body: "หลักการ: Start → Stop → Report → ได้คะแนน\nUndo/Redo ใช้แก้ล่าสุดได้ (หน้า Today)" },
@@ -1537,11 +1615,10 @@ const TIPS = {
   today: { title: "Today", body: "ดูคะแนนรวมวันนี้ + รายการเควส\nExport/Import ใช้สำรองข้อมูล" },
   report:{ title: "Report", body: "Report จะโผล่เมื่อกด Stop\nMinutes > 0\nBonus ใช้ได้เมื่อเวลา ≥ 30 นาที" },
   cut:   { title: "Cutting Time", body: "กด Set Time เพื่อเปิด\nใส่นาที 1–360\nHard: ถึงแล้วหยุดทันที\nSoft: เตือนก่อน 10 วิ แล้วหยุด" },
+    gate:  { title: "Morning Gate", body: "กติกา: เปิดเว็บแล้วเริ่ม Gate\nถ้าหมดเวลาแล้วยังไม่ Start เควสแรก → ล็อก Start\nต้อง Unlock ด้วยเหตุผล (หรือ Snooze 5 นาที)\nเหตุผลจะถูกแนบลง Notes ของเควสแรกอัตโนมัติ" },
 };
 
-let lastTipBtn = null;
-let lastTipKey = null;
-
+/* ✅ PATCH: showTooltip ยึดตำแหน่งจาก #appScroll (scroll container) */
 function showTooltip(anchorEl, tipKey){
   const tip = TIPS[tipKey] || { title:"Tip", body:"-" };
   el.tipTitle.textContent = tip.title;
@@ -1549,43 +1626,43 @@ function showTooltip(anchorEl, tipKey){
 
   const sc = el.appScroll;
   const scRect = sc.getBoundingClientRect();
-  const aRect  = anchorEl.getBoundingClientRect();
-
-  const anchorLeft = (aRect.left - scRect.left) + sc.scrollLeft;
-  const anchorTop  = (aRect.top  - scRect.top)  + sc.scrollTop;
-  const anchorBottom = anchorTop + aRect.height;
+  const rect = anchorEl.getBoundingClientRect();
 
   const pad = 10;
-  const tw = Math.min(340, sc.clientWidth - 24);
+  const tw = Math.min(340, scRect.width - 24);
 
-  // ให้ browser คำนวณสูงจริงหลังใส่ text แล้ว
-  el.tooltip.style.left = "12px";
-  el.tooltip.style.top = (sc.scrollTop + 12) + "px";
-  el.tooltip.classList.add("show");
-  el.tipArrow.classList.add("show");
+  // พิกัดในระบบของ .app
+  const anchorLeftInApp = (rect.left - scRect.left) + sc.scrollLeft;
+  const anchorTopInApp  = (rect.top  - scRect.top)  + sc.scrollTop;
 
-  const th = el.tooltip.offsetHeight || 160;
+  let left = anchorLeftInApp;
+  let top  = anchorTopInApp + rect.height + pad;
 
-  let left = clamp(anchorLeft, 12, sc.scrollLeft + sc.clientWidth - tw - 12);
-  let top  = anchorBottom + pad;
+  // กันหลุดขอบ
+  left = Math.max(sc.scrollLeft + 12, Math.min(left, sc.scrollLeft + scRect.width - tw - 12));
 
-  const bottomLimit = sc.scrollTop + sc.clientHeight - 12;
-  if(top + th > bottomLimit){
-    top = anchorTop - th - pad;
+  // ถ้าด้านล่างแน่น ย้ายไปด้านบน
+  const approxH = 160;
+  if(top + approxH > sc.scrollTop + sc.clientHeight - 12){
+    top = anchorTopInApp - approxH - pad;
   }
   top = Math.max(sc.scrollTop + 12, top);
 
   el.tooltip.style.left = left + "px";
-  el.tooltip.style.top  = top  + "px";
+  el.tooltip.style.top  = top + "px";
+  el.tooltip.style.width = tw + "px";
+  el.tooltip.classList.add("show");
 
+  // arrow
   const arrowSize = 14;
-  let ax = clamp(anchorLeft + 8, 12, sc.scrollLeft + sc.clientWidth - arrowSize - 12);
-  let ay = (top > anchorTop) ? (anchorBottom + 2) : (anchorTop - arrowSize - 2);
+  let ax = anchorLeftInApp + 10;
+  ax = Math.max(sc.scrollLeft + 12, Math.min(ax, sc.scrollLeft + scRect.width - arrowSize - 12));
+  const ay = (top > anchorTopInApp) ? (anchorTopInApp + rect.height + 2) : (anchorTopInApp - arrowSize - 2);
 
   el.tipArrow.style.left = ax + "px";
   el.tipArrow.style.top  = ay + "px";
+  el.tipArrow.classList.add("show");
 }
-
 function hideTooltip(){
   el.tooltip.classList.remove("show");
   el.tipArrow.classList.remove("show");
@@ -1603,7 +1680,217 @@ function maybeShowOnboardingFirstTime(){
   const seen = localStorage.getItem(KEY_ONBOARD) === "1";
   if(!seen) openOnboarding();
 }
+/* =========================
+  MORNING GATE (v1)
+========================= */
+const KEY_GATE = "qps_morning_gate_v1";
 
+let gate = {
+  dateKey: null,
+  startedAt: 0,
+  limitMin: 10,
+  mode: "soft",          // soft|hard
+  locked: false,
+  unlocked: false,
+  unlockReason: "",
+  snoozeUntil: 0
+};
+
+function loadGate(){
+  try{
+    const raw = localStorage.getItem(KEY_GATE);
+    if(raw){
+      const g = JSON.parse(raw);
+      if(g && typeof g==="object") gate = { ...gate, ...g };
+    }
+  }catch{}
+  // new day reset
+  const today = localDateKey();
+  if(gate.dateKey !== today){
+    gate.dateKey = today;
+    gate.startedAt = 0;
+    gate.locked = false;
+    gate.unlocked = false;
+    gate.unlockReason = "";
+    gate.snoozeUntil = 0;
+    saveGate();
+  }
+}
+function saveGate(){ localStorage.setItem(KEY_GATE, JSON.stringify(gate)); }
+
+function showGateWarn(msg){
+  el.gateWarn.style.display="block";
+  el.gateWarn.textContent=msg;
+  setTimeout(()=>{ el.gateWarn.style.display="none"; el.gateWarn.textContent=""; }, 2500);
+}
+function setGateOk(msg){
+  el.gateOk.style.display="block";
+  el.gateOk.textContent=msg;
+  setTimeout(()=>{ el.gateOk.style.display="none"; el.gateOk.textContent=""; }, 2500);
+}
+
+function isFirstQuestAlreadyDoneToday(){
+  const today = localDateKey();
+  const data = loadAll();
+  const day = data[today];
+  return !!(day && Array.isArray(day.quests) && day.quests.length > 0);
+}
+
+function gateStart(){
+  if(isFirstQuestAlreadyDoneToday()){
+    gate.startedAt = 0;
+    gate.locked = false;
+    gate.unlocked = true;
+    saveGate();
+    renderGate();
+    setGateOk("วันนี้มีเควสแล้ว ✅ Gate ไม่ล็อก");
+    return;
+  }
+  gate.limitMin = clamp(Number(el.gateLimitMin.value || gate.limitMin), 1, 180);
+  gate.mode = el.gateMode.value || "soft";
+  gate.startedAt = Date.now();
+  gate.locked = false;
+  gate.unlocked = false;
+  gate.unlockReason = "";
+  gate.snoozeUntil = 0;
+  saveGate();
+  renderGate();
+  setGateOk("เริ่ม Morning Gate แล้ว");
+}
+
+function gateReset(){
+  gate.startedAt = 0;
+  gate.locked = false;
+  gate.unlocked = false;
+  gate.unlockReason = "";
+  gate.snoozeUntil = 0;
+  saveGate();
+  renderGate();
+  setGateOk("รีเซ็ต Gate แล้ว");
+}
+
+function gateSnooze5(){
+  gate.snoozeUntil = Date.now() + 5*60000;
+  gate.locked = false;
+  saveGate();
+  renderGate();
+  setGateOk("Snooze +5 นาที");
+}
+
+function gateUnlock(){
+  const reason = (el.gateReason.value || "").trim();
+  if(!reason){
+    showGateWarn("ต้องใส่เหตุผลก่อน");
+    return;
+  }
+  gate.unlocked = true;
+  gate.locked = false;
+  gate.unlockReason = reason;
+  saveGate();
+  renderGate();
+  setGateOk("Unlock แล้ว ✅");
+}
+
+function gateTimeLeftSec(){
+  if(!gate.startedAt) return 0;
+  const now = Date.now();
+
+  // snooze active
+  if(gate.snoozeUntil && now < gate.snoozeUntil){
+    const ms = gate.snoozeUntil - now;
+    return Math.ceil(ms/1000);
+  }
+
+  const end = gate.startedAt + gate.limitMin*60000;
+  const ms = end - now;
+  return Math.max(0, Math.ceil(ms/1000));
+}
+
+function gateMaybeLock(){
+  if(gate.unlocked) return;
+  if(isFirstQuestAlreadyDoneToday()) return;
+
+  if(!gate.startedAt) return;
+
+  const now = Date.now();
+
+  // snooze: not lock during snooze window
+  if(gate.snoozeUntil && now < gate.snoozeUntil) return;
+
+  const left = gateTimeLeftSec();
+  if(left <= 0){
+    gate.locked = true;
+    saveGate();
+  }
+}
+
+function gateEnforceStartButton(){
+  // ถ้าเริ่มเควสไปแล้ว ไม่ต้องล็อก
+  if(isFirstQuestAlreadyDoneToday()){
+    el.startBtn.disabled = (state.status !== "idle");
+    return;
+  }
+
+  // ถ้ายังไม่เริ่ม Gate ก็ปล่อย
+  if(!gate.startedAt){
+    return; // startBtn จะถูกควบคุมโดย renderControls() ปกติ
+  }
+
+  // ถ้า locked และยังไม่ unlock -> ห้ามเริ่ม
+  if(gate.locked && !gate.unlocked){
+    if(state.status === "idle"){
+      el.startBtn.disabled = true;
+    }
+  }
+}
+
+function renderGate(){
+  // sync inputs
+  el.gateLimitMin.value = String(gate.limitMin || 10);
+  el.gateMode.value = gate.mode || "soft";
+
+  let status = "Not started";
+  if(isFirstQuestAlreadyDoneToday()){
+    status = "Pass ✅ (quest already started)";
+    el.gateTimerText.textContent = "DONE";
+    el.gateLockBox.style.display = "none";
+    el.gateStatus.textContent = status;
+    return;
+  }
+
+  if(gate.startedAt){
+    if(gate.unlocked){
+      status = "Unlocked ✅";
+      el.gateLockBox.style.display = "none";
+    }else if(gate.locked){
+      status = "Locked ❌";
+      el.gateLockBox.style.display = "block";
+    }else{
+      status = "Running";
+      el.gateLockBox.style.display = "none";
+    }
+
+    const left = gateTimeLeftSec();
+    const mm = String(Math.floor(left/60)).padStart(2,"0");
+    const ss = String(left%60).padStart(2,"0");
+    el.gateTimerText.textContent = `${mm}:${ss}`;
+  }else{
+    el.gateTimerText.textContent = "00:00";
+    el.gateLockBox.style.display = "none";
+  }
+
+  el.gateStatus.textContent = status;
+}
+
+/* hook: ใส่เหตุผล gate ลง Notes ของเควสแรก */
+function gateConsumeReasonIfAny(){
+  if(!gate.unlockReason) return "";
+  const msg = `Morning Gate Unlock: ${gate.unlockReason}`;
+  // consume once
+  gate.unlockReason = "";
+  saveGate();
+  return msg;
+}
 /* =========================
   EVENTS
 ========================= */
@@ -1667,7 +1954,7 @@ el.cutToggleBtn.addEventListener("click", ()=>{
     state.softWarned = false;
     state.softDeadlineTs = 0;
   }else{
-    state.cutMinutes = readCutMinutes();
+    state.cutMinutes = readCutMinutes(); // may be null
   }
   saveState();
   renderCutUI();
@@ -1687,54 +1974,39 @@ el.cutMode.addEventListener("change", ()=>{
   saveState();
 });
 
-/* tooltip events (FIXED) */
+/* tooltip events */
 document.querySelectorAll(".helpBtn[data-tip]").forEach(btn=>{
   btn.addEventListener("click", (e)=>{
-    e.preventDefault();
     e.stopPropagation();
-
     const key = btn.dataset.tip;
-
-    if(el.tooltip.classList.contains("show") && lastTipBtn === btn && lastTipKey === key){
-      hideTooltip();
-      lastTipBtn = null;
-      lastTipKey = null;
-      return;
-    }
-
-    lastTipBtn = btn;
-    lastTipKey = key;
-    showTooltip(btn, key);
+    if(el.tooltip.classList.contains("show")) hideTooltip();
+    else showTooltip(btn, key);
   });
 });
-el.tipCloseBtn.addEventListener("click", (e)=>{
-  e.preventDefault();
-  e.stopPropagation();
-  hideTooltip();
-  lastTipBtn = null;
-  lastTipKey = null;
-});
+el.tipCloseBtn.addEventListener("click", hideTooltip);
 document.addEventListener("click", (e)=>{
-  if(!el.tooltip.classList.contains("show")) return;
-
-  const clickedHelp = e.target.closest && e.target.closest(".helpBtn");
-  if(el.tooltip.contains(e.target) || clickedHelp) return;
-
-  hideTooltip();
-  lastTipBtn = null;
-  lastTipKey = null;
+  if(el.tooltip.classList.contains("show")){
+    const t = el.tooltip.contains(e.target);
+    const hb = e.target.classList && e.target.classList.contains("helpBtn");
+    if(!t && !hb) hideTooltip();
+  }
 });
-el.appScroll.addEventListener("scroll", ()=>{
-  if(el.tooltip.classList.contains("show")) hideTooltip();
-}, { passive:true });
-window.addEventListener("resize", ()=>{
-  if(el.tooltip.classList.contains("show")) hideTooltip();
-});
+
+/* ✅ PATCH: เปลี่ยนจาก window scroll -> appScroll scroll */
+el.appScroll.addEventListener("scroll", ()=>{ if(el.tooltip.classList.contains("show")) hideTooltip(); }, { passive:true });
+
+window.addEventListener("resize", ()=>{ if(el.tooltip.classList.contains("show")) hideTooltip(); });
 
 /* onboarding */
 el.openOnboardBtn.addEventListener("click", ()=> openOnboarding());
 el.okOnBtn.addEventListener("click", ()=> closeOnboarding(true));
 el.onOverlay.addEventListener("click", (e)=>{ if(e.target===el.onOverlay) closeOnboarding(true); });
+
+/* morning gate events */
+el.gateStartBtn.addEventListener("click", gateStart);
+el.gateResetBtn.addEventListener("click", gateReset);
+el.gateUnlockBtn.addEventListener("click", gateUnlock);
+el.gateSnoozeBtn.addEventListener("click", gateSnooze5);
 
 /* =========================
   BOOT
@@ -1742,12 +2014,14 @@ el.onOverlay.addEventListener("click", (e)=>{ if(e.target===el.onOverlay) closeO
 function boot(){
   loadState();
 
+  // recover weird state
   if(state.status==="running" && !state.startTs){
     state.status="paused";
     state.startTs=null;
     saveState();
   }
 
+  // sync initial UI
   if(state.status==="idle"){
     el.category.value = state.selectedCategory || "Learning";
     el.questName.value = state.questName || "";
@@ -1760,6 +2034,8 @@ function boot(){
   updateStreakAfterChange();
   maybeShowOnboardingFirstTime();
   startTick();
+    loadGate();
+  renderGate();
 }
 boot();
 </script>
