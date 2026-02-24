@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>QPS Timer v0.5 (Rebuild v5 • Full Regen)</title>
+  <title>QPS Timer v0.5.3 (Morning Gate v3 • Full Regen)</title>
 
   <style>
     :root{
@@ -57,7 +57,7 @@
       overflow-y:auto;
       -webkit-overflow-scrolling: touch;
       padding: 14px 12px 56px;
-      position: relative; /* tooltip absolute anchor */
+      position: relative;
     }
     .container{ max-width: 860px; margin: 0 auto; }
 
@@ -94,6 +94,24 @@
       font-size:12px; color:var(--muted);
     }
     .pill b{ color:var(--ink); }
+
+    .pillBtn{
+      border:0;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-weight: 950;
+      font-size: 12px;
+      cursor:pointer;
+      background: rgba(2,6,23,.06);
+      color: var(--ink);
+      border: 1px solid var(--border);
+      box-shadow:none;
+    }
+    .pillBtn.on{
+      background: rgba(34,197,94,.14);
+      border-color: rgba(34,197,94,.28);
+      color:#166534;
+    }
 
     .jump{
       display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;
@@ -132,6 +150,10 @@
     .row.two{ grid-template-columns: 1fr; }
     @media(min-width:720px){
       .row.two{ grid-template-columns: 1fr 1fr; }
+    }
+    .row.three{ grid-template-columns: 1fr; }
+    @media(min-width:720px){
+      .row.three{ grid-template-columns: 1fr 1fr 1fr; }
     }
 
     label{ display:block; color:var(--muted); font-size: 12px; margin-bottom: 6px; }
@@ -456,7 +478,7 @@
     .smallHint{ font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
 
     /* =========================
-       MORNING GATE (ONLY UX)
+       MORNING GATE (v3)
     ========================= */
     .gateCover{
       position: fixed;
@@ -467,7 +489,6 @@
       justify-content: center;
       padding: 18px;
 
-      /* glass + allow bg to show */
       background:
         radial-gradient(900px 600px at 20% 20%, rgba(255,255,255,.14), transparent 55%),
         radial-gradient(700px 520px at 80% 30%, rgba(0,0,0,.12), transparent 60%),
@@ -653,44 +674,72 @@
       border: 1px solid rgba(255,255,255,.16);
     }
 
-    /* เว้นที่ด้านบนเวลาแถบ gate โผล่ */
     body.gateBarOn .app{ padding-top: 64px; }
     @media(min-width:720px){
       body.gateBarOn .app{ padding-top: 66px; }
     }
+
+    /* Morning Gate settings box */
+    .gateSettings{
+      margin-top: 12px;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: rgba(2,6,23,.02);
+      padding: 12px;
+    }
+    .gateSettingsHead{
+      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    }
+    .gateSettingsTitle{
+      display:flex; align-items:center; gap:10px;
+      font-weight: 950; font-size: 13px;
+    }
+    .gateTinyPill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.86);
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 950;
+      white-space:nowrap;
+    }
+    .gateTinyPill b{ color: var(--ink); }
   </style>
 </head>
 
 <body>
-  <!-- MORNING GATE COVER (FORCED) -->
+  <!-- MORNING GATE COVER -->
   <div class="gateCover" id="gateCover" aria-hidden="true">
     <div class="gatePanel" role="dialog" aria-modal="true">
       <div class="gatePanelHead">
         <div>
           <p class="gateTitle">🟥 Morning Gate</p>
-          <p class="gateKicker">
-            จะเริ่ม “วัน” ได้ ก็ต่อเมื่อกดเริ่ม Gate ก่อน<br>
-            
+          <p class="gateKicker" id="gateCoverKicker">
+            โหมดนี้จะเริ่มทำงานตามเวลา “Trigger Time” ของวันนี้<br>
+            เป้าคือเริ่มเควสแรกให้ทัน แล้ววิ่งครบ 3 นาทีเพื่อ PASS
           </p>
         </div>
         <div class="gateChip" id="gateCoverStatusChip">STATUS: READY</div>
       </div>
 
       <div class="gatePanelBody">
-        <!-- non-editable stylish display -->
         <div class="gateInlineEdit">
           <div class="gateChip" style="background: rgba(255,255,255,.10);">
-            LIMIT: <b id="gateLimitDisplay">10:00</b>
+            TRIGGER: <b id="gateTriggerDisplay">07:10</b>
           </div>
           <div class="gateChip" style="background: rgba(255,255,255,.10);">
-            MODE: <b id="gateModeDisplay">SOFT</b>
+            LIMIT: <b id="gateLimitDisplay">10m</b>
+          </div>
+          <div class="gateChip" style="background: rgba(255,255,255,.10);">
+            QUALIFY: <b id="gateQualifyDisplay">3m</b>
           </div>
         </div>
 
         <div class="gateBigTime" id="gateCoverTime">--:--</div>
         <div class="gateSubHint" id="gateCoverHint">
-          กด “เริ่ม Morning Gate” แล้วเริ่มนับถอยหลังทันที<br>
-          เป้าคือ “Start เควสแรก” ให้ทันก่อนหมดเวลา
+          ถ้าถึง Trigger แล้ว: กด “เริ่ม Morning Gate” → จะเริ่มนับถอยหลังทันที
         </div>
 
         <div class="gateActions">
@@ -721,7 +770,7 @@
         <div class="topbarRow">
           <div class="brand">
             <h1>
-              QPS Timer v0.5.2
+              QPS Timer v0.5.3
               <button class="helpBtn" type="button" data-tip="top">?</button>
             </h1>
             <div class="sub" id="todayText">Today: ----</div>
@@ -730,6 +779,11 @@
           <div class="pills">
             <div class="pill" id="statusPill">Status: <b>Idle</b></div>
             <div class="pill" id="streakPill">🔥 Streak: <b>0</b> • Best: <b>0</b></div>
+
+            <div class="pill" style="gap:10px;">
+              🟥 Morning Gate
+              <button class="pillBtn" id="gateToggleBtn" type="button">OFF</button>
+            </div>
           </div>
         </div>
 
@@ -769,6 +823,45 @@
             </div>
           </div>
 
+          <!-- Morning Gate Settings -->
+          <div class="gateSettings" id="gateSettingsBox" style="display:none;">
+            <div class="gateSettingsHead">
+              <div class="gateSettingsTitle">
+                🟥 Morning Gate Settings
+                <span class="gateTinyPill">Bonus: <b>+6</b> (PASS ภายใน deadline)</span>
+              </div>
+              <div class="hint" style="margin:0;">
+                โบนัสยึด “เวลาโลกจริง” ตาม Trigger Time (กันโกงปัดแอปไปไถ)
+              </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="row three">
+              <div>
+                <label for="gateTriggerInput">Trigger Time (เวลาจริง)</label>
+                <input id="gateTriggerInput" type="time" value="07:10" />
+                <div class="smallHint">ถึงเวลานี้ → Gate เริ่มบังคับ</div>
+              </div>
+
+              <div>
+                <label for="gateLimitInput">Limit (นาที)</label>
+                <input id="gateLimitInput" type="number" inputmode="numeric" min="1" max="60" step="1" value="10" />
+                <div class="smallHint">Deadline = Trigger + Limit</div>
+              </div>
+
+              <div>
+                <label>Qualify</label>
+                <input type="text" value="3 นาที (fix)" disabled />
+                <div class="smallHint">PASS เมื่อเควสแรกวิ่งครบ 3 นาที</div>
+              </div>
+            </div>
+
+            <div class="hint" style="margin-top:10px;">
+              ถ้าเลย deadline แล้วจะไม่ให้โบนัสแม้จะมาเริ่มทีหลัง • ถ้าติด LOCKED ต้อง Unlock พร้อมเหตุผล (โบนัสจะโดนตัด)
+            </div>
+          </div>
+
           <div class="cutWrap" id="cutWrap">
             <div class="cutHeader">
               <button class="cutBtn" type="button" id="cutToggleBtn">
@@ -801,6 +894,29 @@
 
           <div class="divider"></div>
 
+          <!-- MORNING GATE SETTINGS -->
+<div class="badge" style="justify-content:space-between;width:100%;display:flex;gap:10px;margin-top:2px;">
+  🟥 Morning Gate Settings
+  <span style="color:var(--muted);font-weight:900;">Bonus: +<span id="gateBonusText">6</span></span>
+</div>
+
+<div class="row two" style="margin-top:10px;">
+  <div>
+    <label for="gateEnabled">Enable Morning Gate</label>
+    <select id="gateEnabled">
+      <option value="on">ON</option>
+      <option value="off">OFF</option>
+    </select>
+    <div class="smallHint">เปิด=เริ่มวันต้องผ่าน Gate • ปิด=ไม่บังคับ</div>
+  </div>
+
+  <div>
+    <label for="gateTriggerTime">Trigger Time (เวลาจริง)</label>
+    <input id="gateTriggerTime" type="time" />
+    <div class="smallHint" id="gateTriggerHint"></div>
+  </div>
+</div>
+
           <div class="timer" id="timerText">00:00:00</div>
           <div class="hint" id="timerHint">เลือกเควสแล้วกด Start</div>
           <div class="warnText" id="timerWarn" style="display:none;"></div>
@@ -818,8 +934,8 @@
           </div>
 
           <div class="hint" style="margin-top:8px;">
-            <b>Morning Gate:</b> ต้องกดเริ่ม Gate ก่อนถึงกด Start ได้ •
-            PASS เมื่อเควสแรกวิ่งครบ <b>3 นาที</b> (กันโกง)
+            <b>Morning Gate (ถ้า ON):</b>
+            Gate จะเริ่มบังคับเมื่อถึง Trigger Time • PASS เมื่อเควสแรกวิ่งครบ <b>3 นาที</b> • โบนัส +6 ถ้า PASS ภายใน deadline
           </div>
         </div>
       </div>
@@ -970,14 +1086,17 @@
 
 <script>
 /* =========================
-  STORAGE KEYS (v5)
+  STORAGE KEYS (v0.5.3)
 ========================= */
 const KEY_STATE   = "qps_timer_state_v4";
 const KEY_DATA    = "qpsData_v4";
 const KEY_STREAK  = "qps_streak_v2";
 const KEY_UNDO    = "qps_undo_v2";
 const KEY_ONBOARD = "qps_onboard_seen_v2";
-const KEY_GATE    = "qps_morning_gate_v2"; // bumped version (clean regen)
+
+/* Morning Gate v3 */
+const KEY_GATE    = "qps_morning_gate_v3";
+const KEY_GATE_PREF = "qps_gate_pref_v1"; // settings ถาวรของ morning gate (trigger/enabled/lock)
 
 /* =========================
   RULES
@@ -987,10 +1106,13 @@ const RULES = {
   bonusMinMinutes: 30,
   baseCapPerQuestNamePerDay: 60,
 };
+
 const GATE_RULES = {
-  limitMin: 10,
-  mode: "soft",        // soft|hard
-  qualifyMin: 3        // ต้องวิ่งเควสแรก >= 3 นาที ถึง PASS
+  defaultEnabled: false,   // สำคัญ: default OFF
+  defaultTrigger: "07:10",
+  defaultLimitMin: 10,
+  qualifyMin: 3,           // first quest must run >= 3 min -> PASS
+  bonusPoints: 6
 };
 
 /* =========================
@@ -1037,6 +1159,21 @@ function normQuestName(name){
   return (name || "").trim().replace(/\s+/g," ");
 }
 function sanitizeDigitsOnly(v){ return String(v ?? "").replace(/[^\d]/g,""); }
+
+function parseHHMM(s){
+  const m = String(s||"").match(/^(\d{2}):(\d{2})$/);
+  if(!m) return null;
+  const hh = Number(m[1]), mm = Number(m[2]);
+  if(!Number.isFinite(hh)||!Number.isFinite(mm)) return null;
+  if(hh<0||hh>23||mm<0||mm>59) return null;
+  return { hh, mm };
+}
+function todayAtHHMM(triggerStr){
+  const t = parseHHMM(triggerStr);
+  const now = new Date();
+  if(!t) return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 7, 10, 0, 0);
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), t.hh, t.mm, 0, 0);
+}
 
 /* =========================
   DATA LAYER
@@ -1193,6 +1330,11 @@ const el = {
   statusPill: document.getElementById("statusPill"),
   streakPill: document.getElementById("streakPill"),
 
+  gateToggleBtn: document.getElementById("gateToggleBtn"),
+  gateSettingsBox: document.getElementById("gateSettingsBox"),
+  gateTriggerInput: document.getElementById("gateTriggerInput"),
+  gateLimitInput: document.getElementById("gateLimitInput"),
+
   category: document.getElementById("category"),
   questName: document.getElementById("questName"),
   nameWarn: document.getElementById("nameWarn"),
@@ -1253,16 +1395,21 @@ const el = {
   cutMinutes: document.getElementById("cutMinutes"),
   cutMode: document.getElementById("cutMode"),
 
-  // Gate cover + bar
   gateCover: document.getElementById("gateCover"),
   gateCoverStatusChip: document.getElementById("gateCoverStatusChip"),
   gateCoverTime: document.getElementById("gateCoverTime"),
   gateCoverHint: document.getElementById("gateCoverHint"),
+  gateCoverKicker: document.getElementById("gateCoverKicker"),
   gateCoverStartBtn: document.getElementById("gateCoverStartBtn"),
+  gateTriggerDisplay: document.getElementById("gateTriggerDisplay"),
   gateLimitDisplay: document.getElementById("gateLimitDisplay"),
-  gateModeDisplay: document.getElementById("gateModeDisplay"),
+  gateQualifyDisplay: document.getElementById("gateQualifyDisplay"),
 
   gateTopBar: document.getElementById("gateTopBar"),
+    gateEnabled: document.getElementById("gateEnabled"),
+  gateTriggerTime: document.getElementById("gateTriggerTime"),
+  gateTriggerHint: document.getElementById("gateTriggerHint"),
+  gateBonusText: document.getElementById("gateBonusText"),
   gateTopTitle: document.getElementById("gateTopTitle"),
   gateTopSub: document.getElementById("gateTopSub"),
   gateTopTime: document.getElementById("gateTopTime"),
@@ -1270,7 +1417,7 @@ const el = {
 };
 
 /* =========================
-  STATE
+  STATE (timer)
 ========================= */
 let state = {
   status: "idle", // idle|running|paused|stopped
@@ -1284,7 +1431,7 @@ let state = {
 
   cutEnabled: false,
   cutMinutes: null,
-  cutMode: "hard", // hard|soft
+  cutMode: "hard",
 
   softWarned: false,
   softDeadlineTs: 0,
@@ -1299,6 +1446,502 @@ function loadState(){
     const s = JSON.parse(raw);
     if(s && typeof s==="object") state = { ...state, ...s };
   }catch{}
+}
+/* =========================
+  MORNING GATE PREF (persistent settings)
+========================= */
+let gatePref = {
+  enabled: true,
+  triggerHHMM: "07:10",     // เวลาโลกจริง (local time)
+  changeEveryDays: 7,       // ล็อกเปลี่ยนได้ทุก 7 วัน
+  lastChangedAt: 0,         // timestamp ล่าสุดที่เปลี่ยน trigger
+  bonus: 6                  // โบนัสถ้าผ่านภายใน deadline
+};
+
+function loadGatePref(){
+  try{
+    const raw = localStorage.getItem(KEY_GATE_PREF);
+    if(raw){
+      const p = JSON.parse(raw);
+      if(p && typeof p==="object") gatePref = { ...gatePref, ...p };
+    }
+  }catch{}
+  // sanitize
+  if(typeof gatePref.enabled !== "boolean") gatePref.enabled = true;
+  if(!/^\d{2}:\d{2}$/.test(gatePref.triggerHHMM)) gatePref.triggerHHMM = "07:10";
+  if(!Number.isFinite(gatePref.changeEveryDays) || gatePref.changeEveryDays < 1) gatePref.changeEveryDays = 7;
+  if(!Number.isFinite(gatePref.lastChangedAt)) gatePref.lastChangedAt = 0;
+  if(!Number.isFinite(gatePref.bonus)) gatePref.bonus = 6;
+}
+
+function saveGatePref(){
+  localStorage.setItem(KEY_GATE_PREF, JSON.stringify(gatePref));
+}
+
+function canChangeTriggerNow(){
+  if(!gatePref.lastChangedAt) return true;
+  const cooldownMs = gatePref.changeEveryDays * 24*60*60*1000;
+  return Date.now() - gatePref.lastChangedAt >= cooldownMs;
+}
+
+function msUntilTriggerChangeAllowed(){
+  if(!gatePref.lastChangedAt) return 0;
+  const cooldownMs = gatePref.changeEveryDays * 24*60*60*1000;
+  return Math.max(0, (gatePref.lastChangedAt + cooldownMs) - Date.now());
+}
+
+function setTriggerHHMM(hhmm){
+  if(!/^\d{2}:\d{2}$/.test(hhmm)) return { ok:false, msg:"รูปแบบเวลาต้องเป็น HH:MM" };
+  const [hh, mm] = hhmm.split(":").map(Number);
+  if(hh<0||hh>23||mm<0||mm>59) return { ok:false, msg:"เวลาผิด" };
+  if(!canChangeTriggerNow()) return { ok:false, msg:`ยังไม่ครบกำหนด ${gatePref.changeEveryDays} วัน เปลี่ยนไม่ได้` };
+  gatePref.triggerHHMM = hhmm;
+  gatePref.lastChangedAt = Date.now();
+  saveGatePref();
+  return { ok:true };
+}
+
+function todayTriggerTs(){
+  const [hh, mm] = gatePref.triggerHHMM.split(":").map(Number);
+  const now = new Date();
+  const t = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh, mm, 0, 0);
+  return t.getTime();
+}
+
+/* =========================
+  MORNING GATE v3 (world-time based)
+========================= */
+let gate = {
+  dateKey: null,
+
+  enabled: GATE_RULES.defaultEnabled,
+
+  triggerHHMM: GATE_RULES.defaultTrigger, // "HH:MM"
+  limitMin: GATE_RULES.defaultLimitMin,
+
+  // runtime day state
+  startedAt: 0,          // when user pressed "Start Gate" (starts countdown)
+  locked: false,
+  unlocked: false,
+  unlockReason: "",
+  passed: false,
+
+  firstQuestStartAt: 0,  // when first quest started (for qualify)
+  bonusGranted: false,
+
+  doneBannerUntil: 0
+};
+
+function saveGate(){ localStorage.setItem(KEY_GATE, JSON.stringify(gate)); }
+function gateResetForToday(force=false){
+  const today = localDateKey();
+  gate.dateKey = today;
+
+  gate.startedAt = 0;
+  gate.locked = false;
+  gate.unlocked = false;
+  gate.unlockReason = "";
+  gate.passed = false;
+  gate.firstQuestStartAt = 0;
+  gate.bonusGranted = false;
+  gate.doneBannerUntil = 0;
+
+  if(force) saveGate();
+}
+function loadGate(){
+  try{
+    const raw = localStorage.getItem(KEY_GATE);
+    if(raw){
+      const g = JSON.parse(raw);
+      if(g && typeof g==="object") gate = { ...gate, ...g };
+    }
+  }catch{}
+
+  // defaults safety
+  if(typeof gate.enabled !== "boolean") gate.enabled = GATE_RULES.defaultEnabled;
+
+  if(!parseHHMM(gate.triggerHHMM)) gate.triggerHHMM = GATE_RULES.defaultTrigger;
+
+  gate.limitMin = Number(gate.limitMin);
+  if(!Number.isFinite(gate.limitMin) || gate.limitMin < 1 || gate.limitMin > 60){
+    gate.limitMin = GATE_RULES.defaultLimitMin;
+  }
+
+  // rotate day
+  const today = localDateKey();
+  if(gate.dateKey !== today){
+    gateResetForToday(true);
+  }
+
+  // if day already has quests -> PASS now, no bullshit
+  if(isFirstQuestAlreadyDoneToday()){
+    gate.passed = true;
+    gate.locked = false;
+    gate.unlocked = true;
+    saveGate();
+  }
+}
+
+function gateWorldStartTs(){
+  return todayAtHHMM(gate.triggerHHMM).getTime();
+}
+function gateWorldDeadlineTs(){
+  return gateWorldStartTs() + gate.limitMin * 60000;
+}
+function gateIsWorldActiveNow(){
+  if(!gate.enabled) return false;
+  if(isFirstQuestAlreadyDoneToday() || gate.passed) return false;
+
+  const now = Date.now();
+  const start = gateWorldStartTs();
+
+  // before trigger time -> no enforcement (allow start)
+  if(now < start) return false;
+
+  // after trigger time -> enforcement is ON until passed/unlocked (or locked)
+  return true;
+}
+function gateTimeLeftSec(){
+  if(!gate.startedAt) return 0;
+  const end = gate.startedAt + gate.limitMin * 60000;
+  const ms = end - Date.now();
+  return Math.max(0, Math.ceil(ms/1000));
+}
+
+function showGateCover(){
+  el.gateCover.classList.add("show");
+  document.body.style.overflow = "hidden";
+  el.gateCover.setAttribute("aria-hidden","false");
+}
+function hideGateCover(){
+  el.gateCover.classList.remove("show");
+  document.body.style.overflow = "";
+  el.gateCover.setAttribute("aria-hidden","true");
+}
+function showGateTopBar(){
+  el.gateTopBar.classList.add("show");
+  document.body.classList.add("gateBarOn");
+}
+function hideGateTopBar(){
+  el.gateTopBar.classList.remove("show");
+  document.body.classList.remove("gateBarOn");
+  el.gateTopBar.classList.remove("done");
+}
+
+function gateAutoStartIfNeeded(){
+  if(!gatePref.enabled) return;
+
+  // ถ้าวันนี้ทำเควสแล้ว = ผ่านอยู่แล้ว
+  if(isFirstQuestAlreadyDoneToday()) return;
+
+  // ถ้า already started หรือ passed ก็ไม่ต้องทำ
+  if(gate.startedAt || gate.passed) return;
+
+  const trig = todayTriggerTs();
+  if(Date.now() >= trig){
+    // auto start ที่เวลา trigger
+    gate.startedAt = trig;
+    gate.locked = false;
+    gate.unlocked = false;
+    gate.unlockReason = "";
+    gate.passed = false;
+    gate.firstQuestStartAt = 0;
+    gate.doneBannerUntil = 0;
+    saveGate();
+  }
+}
+
+function gateMaybeLock(){
+  if(!gate.enabled) return;
+  if(gate.passed || isFirstQuestAlreadyDoneToday()) return;
+  if(!gateIsWorldActiveNow()) return;
+
+  // if user never started gate and now already passed world deadline -> treat as locked
+  const now = Date.now();
+  if(now > gateWorldDeadlineTs()){
+    gate.locked = true;
+    if(!gate.startedAt) gate.startedAt = gateWorldStartTs(); // for consistent display
+    saveGate();
+    return;
+  }
+
+  // if they started gate, countdown expiry locks
+  if(!gate.startedAt) return;
+  if(gateTimeLeftSec() <= 0){
+    gate.locked = true;
+    saveGate();
+  }
+}
+
+function gateCanStartQuest(){
+
+  if(!gatePref.enabled) return true;
+  // if gate disabled -> ok
+  if(!gate.enabled) return true;
+
+  // if already passed/day done -> ok
+  if(gate.passed || isFirstQuestAlreadyDoneToday()) return true;
+
+  // if not in enforcement time yet -> ok
+  if(!gateIsWorldActiveNow()) return true;
+
+  // now enforcement is active
+  if(!gate.startedAt) return false;
+  if(gate.locked && !gate.unlocked) return false;
+  return true;
+}
+
+function gateEnforceStartButton(){
+
+  if(!gatePref.enabled){
+    el.startBtn.disabled = false;
+    return;
+  }
+
+  if(state.status !== "idle"){
+    el.startBtn.disabled = true;
+    return;
+  }
+  el.startBtn.disabled = !gateCanStartQuest();
+}
+
+function gateStartFromCover(){
+  if(!gate.enabled){
+    hideGateCover();
+    hideGateTopBar();
+    return;
+  }
+
+  if(isFirstQuestAlreadyDoneToday()){
+    gate.passed = true;
+    gate.unlocked = true;
+    gate.locked = false;
+    saveGate();
+    hideGateCover();
+    hideGateTopBar();
+    return;
+  }
+
+  // if we are before world trigger, allow but don't start timer yet
+  // (rare — cover shouldn't show before trigger anyway)
+  gate.startedAt = Date.now();
+  gate.locked = false;
+  gate.unlocked = false;
+  gate.unlockReason = "";
+  gate.passed = false;
+  gate.firstQuestStartAt = 0;
+  gate.doneBannerUntil = 0;
+  saveGate();
+
+  hideGateCover();
+  showGateTopBar();
+}
+
+function gateConsumeReasonIfAny(){
+  if(!gate.unlockReason) return "";
+  const msg = `Morning Gate Unlock: ${gate.unlockReason}`;
+  gate.unlockReason = "";
+  saveGate();
+  return msg;
+}
+
+function gateGrantBonusIfEligible(){
+  if(!gate.enabled) return;
+  if(gate.bonusGranted) return;
+  if(!gate.passed) return;
+
+  // bonus eligibility (world time + no unlock)
+  const now = Date.now();
+  const deadline = gateWorldDeadlineTs();
+
+  const withinDeadline = now <= deadline;
+  const blockedByUnlock = gate.unlocked === true; // unlocked means they broke gate
+  if(!withinDeadline) return;
+  if(blockedByUnlock) return;
+
+  // grant bonus as a separate entry in TODAY
+  const todayKey = localDateKey();
+  const data = loadAll();
+  const day = ensureDay(data, todayKey);
+
+  // hard guard: avoid duplicates by name (case-insensitive)
+  const bonusName = "Morning Gate Bonus";
+  const exists = day.quests.some(q => normQuestName(q.questName).toLowerCase() === bonusName.toLowerCase());
+  if(exists){
+    gate.bonusGranted = true;
+    saveGate();
+    return;
+  }
+
+  pushUndoSnapshot();
+
+  const entry = {
+    ts: Date.now(),
+    dateKey: todayKey,
+    category: "Connection", // or Discipline (you can change later)
+    questName: bonusName,
+    minutesSpent: 0,
+    baseMinutesUsed: 0,
+    baseScore: 0,
+    qualityBonus: GATE_RULES.bonusPoints,
+    questScore: GATE_RULES.bonusPoints,
+    notes: `Auto Bonus: PASS within deadline • Trigger ${gate.triggerHHMM} • Limit ${gate.limitMin}m`
+  };
+
+  day.quests.push(entry);
+  recalcDayTotal(day);
+  saveAll(data);
+
+  gate.bonusGranted = true;
+  saveGate();
+
+  updateStreakAfterChange();
+  updateUI();
+}
+
+function gateCheckFirstQuestQualify(){
+  if(!gate.enabled) return;
+  if(gate.passed) return;
+  if(!gate.firstQuestStartAt) return;
+  if(state.status !== "running") return;
+
+  const ms = computeElapsedMs();
+  if(ms >= GATE_RULES.qualifyMin * 60000){
+    gate.passed = true;
+    gate.locked = false;
+    gate.unlocked = false; // DO NOT auto unlock — unlock means "broke rule"
+    gate.doneBannerUntil = Date.now() + 2000;
+    saveGate();
+    gateGrantBonusIfEligible();
+  }
+}
+
+function renderGateCoverDisplay(){
+  el.gateTriggerDisplay.textContent = gate.triggerHHMM;
+  el.gateLimitDisplay.textContent = `${gate.limitMin}m`;
+  el.gateQualifyDisplay.textContent = `${GATE_RULES.qualifyMin}m`;
+}
+
+function renderGateSettingsUI(){
+  if(!el.gateEnabled || !el.gateTriggerTime) return;
+
+  el.gateEnabled.value = gatePref.enabled ? "on" : "off";
+  el.gateTriggerTime.value = gatePref.triggerHHMM;
+
+  if(el.gateBonusText) el.gateBonusText.textContent = String(gatePref.bonus);
+
+  const can = canChangeTriggerNow();
+  el.gateTriggerTime.disabled = !can;
+
+  if(!el.gateTriggerHint) return;
+  if(can){
+    el.gateTriggerHint.textContent = `เปลี่ยนได้ (ล็อกทุก ${gatePref.changeEveryDays} วัน)`;
+  }else{
+    const ms = msUntilTriggerChangeAllowed();
+    const hrs = Math.ceil(ms/3600000);
+    el.gateTriggerHint.textContent = `Locked • เปลี่ยนได้อีกประมาณ ${hrs} ชั่วโมง`;
+  }
+}
+
+function renderGateUX(){
+
+  // If gate disabled -> always hide and allow
+  if(!gatePref.enabled){
+    hideGateCover();
+    hideGateTopBar();
+    el.gateCoverStatusChip.textContent = "STATUS: OFF";
+    el.gateCoverTime.textContent = "OFF";
+    return;
+  }
+  renderGateCoverDisplay();
+
+  // gate disabled -> hide everything
+  if(!gate.enabled){
+    hideGateCover();
+    hideGateTopBar();
+    return;
+  }
+
+  // if day already has quests -> pass and hide
+  if(isFirstQuestAlreadyDoneToday() || gate.passed){
+    hideGateCover();
+
+    if(gate.doneBannerUntil && Date.now() < gate.doneBannerUntil){
+      showGateTopBar();
+      el.gateTopBar.classList.add("done");
+      el.gateTopTitle.textContent = "Morning Gate • DONE ✅";
+      el.gateTopSub.textContent = `เควสแรกวิ่งครบ ${GATE_RULES.qualifyMin} นาทีแล้ว`;
+      el.gateTopTime.textContent = "DONE";
+      el.gateTopOpenBtn.textContent = "OK";
+    }else{
+      hideGateTopBar();
+    }
+
+    el.gateCoverStatusChip.textContent = "STATUS: PASS";
+    el.gateCoverTime.textContent = "DONE";
+    el.gateCoverHint.innerHTML = `PASS แล้ว • โบนัสจะให้ตามเงื่อนไขอัตโนมัติ`;
+    return;
+  }
+
+  // before trigger time -> no enforcement, no cover
+  if(!gateIsWorldActiveNow()){
+    hideGateCover();
+    hideGateTopBar();
+
+    el.gateCoverStatusChip.textContent = "STATUS: WAIT";
+    const start = todayAtHHMM(gate.triggerHHMM);
+    const hh = String(start.getHours()).padStart(2,"0");
+    const mm = String(start.getMinutes()).padStart(2,"0");
+    el.gateCoverTime.textContent = `${hh}:${mm}`;
+    el.gateCoverHint.innerHTML = `Gate จะเริ่มบังคับเมื่อถึง <b>${gate.triggerHHMM}</b>`;
+    return;
+  }
+
+  // enforcement active now
+  // if not started gate -> show cover (hard block)
+  if(!gate.startedAt){
+    el.gateCoverStatusChip.textContent = "STATUS: READY";
+    el.gateCoverTime.textContent = "--:--";
+    el.gateCoverKicker.innerHTML =
+      `ถึง Trigger แล้ว: <b>${gate.triggerHHMM}</b><br>` +
+      `กดเริ่ม Gate เพื่อเริ่มนับถอยหลัง และเริ่มเควสแรกให้ทัน`;
+    el.gateCoverHint.innerHTML =
+      `เป้าคือ <b>Start เควสแรก</b> ให้ทันก่อนหมดเวลา<br>` +
+      `PASS เมื่อเควสแรกวิ่งครบ <b>${GATE_RULES.qualifyMin} นาที</b>`;
+    showGateCover();
+    hideGateTopBar();
+    return;
+  }
+
+  // show top bar for running/locked/unlocked
+  showGateTopBar();
+  hideGateCover();
+  el.gateTopBar.classList.remove("done");
+
+  // if locked
+  if(gate.locked && !gate.unlocked){
+    el.gateTopTitle.textContent = "Morning Gate • LOCKED ❌";
+    el.gateTopSub.textContent = "ต้อง Unlock ก่อนถึงจะ Start เควสได้ (โบนัสจะโดนตัด)";
+    el.gateTopTime.textContent = "LOCK";
+    el.gateTopOpenBtn.textContent = "Unlock";
+    return;
+  }
+
+  // if unlocked
+  if(gate.unlocked){
+    el.gateTopTitle.textContent = "Morning Gate • Unlocked ✅";
+    el.gateTopSub.textContent = "เริ่มเควสได้แล้ว (เหตุผลจะติดใน Notes)";
+    el.gateTopTime.textContent = "OK";
+    el.gateTopOpenBtn.textContent = "Gate";
+    return;
+  }
+
+  // running countdown
+  const left = gateTimeLeftSec();
+  el.gateTopTime.textContent = formatMMSS(left);
+  el.gateTopTitle.textContent = "Morning Gate • Running";
+  el.gateTopSub.textContent = "เริ่มเควสแรกให้ทันก่อนหมดเวลา";
+  el.gateTopOpenBtn.textContent = "Gate";
 }
 
 /* =========================
@@ -1382,7 +2025,6 @@ function renderCutUI(){
 }
 
 function renderControls(){
-  // start disabled is also controlled by gateEnforceStartButton()
   el.stopBtn.disabled   = !(state.status==="running" || state.status==="paused");
   el.pauseBtn.disabled  = state.status !== "running";
   el.resumeBtn.disabled = state.status !== "paused";
@@ -1390,6 +2032,11 @@ function renderControls(){
   const lock = state.status !== "idle";
   el.category.disabled = lock;
   el.questName.disabled = lock;
+
+  // gate settings editable only when idle
+  el.gateToggleBtn.disabled = (state.status !== "idle");
+  el.gateTriggerInput.disabled = (state.status !== "idle") || !gate.enabled;
+  el.gateLimitInput.disabled = (state.status !== "idle") || !gate.enabled;
 
   if(state.status==="idle"){
     el.category.value = state.selectedCategory || "Learning";
@@ -1399,6 +2046,16 @@ function renderControls(){
   }
 
   renderCutUI();
+  gateEnforceStartButton();
+}
+
+function renderGateToggleUI(){
+  el.gateToggleBtn.textContent = gate.enabled ? "ON" : "OFF";
+  el.gateToggleBtn.classList.toggle("on", gate.enabled);
+  el.gateSettingsBox.style.display = gate.enabled ? "block" : "none";
+
+  el.gateTriggerInput.value = gate.triggerHHMM;
+  el.gateLimitInput.value = String(gate.limitMin);
 }
 
 /* Today render */
@@ -1443,6 +2100,7 @@ function renderToday(){
 function updateUI(){
   updateStatusPill();
   renderTimer();
+  renderGateToggleUI();
   renderControls();
   renderToday();
   setReportVisible(state.status==="stopped");
@@ -1487,10 +2145,13 @@ function startTick(){
     }
 
     // Gate tick
+      // Gate tick
+    gateAutoStartIfNeeded();
     gateMaybeLock();
     gateCheckFirstQuestQualify();
     gateEnforceStartButton();
     renderGateUX();
+    renderGateSettingsUI();
   }, 250);
 }
 
@@ -1516,9 +2177,14 @@ function validateBeforeStart(){
 function startQuest(){
   if(state.status !== "idle") return;
 
-  // Gate enforcement (hard block)
+  // Gate enforcement
   if(!gateCanStartQuest()){
     showTimerWarn("ติด Morning Gate");
+    // if gate is on and enforcement active -> open cover
+    if(gate.enabled && gateIsWorldActiveNow() && !gate.startedAt){
+      showGateCover();
+      renderGateUX();
+    }
     return;
   }
 
@@ -1546,8 +2212,8 @@ function startQuest(){
   setReportVisible(false);
   updateUI();
 
-  // Gate qualify tracking (first quest must run >= 3 min)
-  if(!gate.passed && gate.startedAt && !gate.locked && !isFirstQuestAlreadyDoneToday()){
+  // Gate qualify tracking: only if gate enabled and enforcement active and not passed and day has no quest yet
+  if(gate.enabled && gateIsWorldActiveNow() && !gate.passed && !isFirstQuestAlreadyDoneToday()){
     gate.firstQuestStartAt = Date.now();
     saveGate();
   }
@@ -1614,7 +2280,6 @@ function discardReport(){
   setReportVisible(false);
   clearSubmitMessages();
   updateUI();
-  gateEnforceStartButton();
 }
 
 function submitReport(){
@@ -1675,16 +2340,6 @@ function submitReport(){
 
   updateStreakAfterChange();
 
-  // If submitted first quest of day, we consider day done anyway
-  // Gate already passed by 3-min rule, but if user didn't pass yet and still submitted, it's fine.
-  // (Gate is for Start, not for Submit)
-  if(isFirstQuestAlreadyDoneToday()){
-    gate.passed = true;
-    gate.unlocked = true;
-    gate.locked = false;
-    saveGate();
-  }
-
   el.submitOk.style.display="block";
   const capMsg = (baseMinutesUsed < minutes) ? ` (cap: counted ${baseMinutesUsed}/${minutes} min)` : "";
   el.submitOk.textContent = `Saved! +${round1(questScore).toFixed(1)}${capMsg}`;
@@ -1703,7 +2358,7 @@ function resetToday(){
   data[todayKey] = { totalQps:0, quests:[] };
   saveAll(data);
 
-  // reset gate for today too
+  // reset gate day-state (keep enabled + settings)
   gateResetForToday(true);
 
   updateStreakAfterChange();
@@ -1843,11 +2498,11 @@ function importDataObject(imported, mode="merge"){
     renderDayView(selectedDay);
   }
 
-  // gate: if today already has quests, consider gate passed
+  // gate: if today already has quests, consider passed
   if(isFirstQuestAlreadyDoneToday()){
     gate.passed = true;
-    gate.unlocked = true;
     gate.locked = false;
+    gate.unlocked = true;
     saveGate();
   }
 
@@ -1870,7 +2525,7 @@ async function importFromFile(file){
   TOOLTIP
 ========================= */
 const TIPS = {
-  top:   { title: "ภาพรวม", body: "หลักการ: Start → Stop → Report → ได้คะแนน\nUndo/Redo ใช้แก้ล่าสุดได้ (หน้า Today)\nMorning Gate บังคับเริ่มวันก่อนเริ่มเควส" },
+  top:   { title: "ภาพรวม", body: "หลักการ: Start → Stop → Report → ได้คะแนน\nUndo/Redo ใช้แก้ล่าสุดได้ (หน้า Today)\nMorning Gate (ถ้า ON) จะเริ่มบังคับเมื่อถึง Trigger Time" },
   timer: { title: "Timer", body: "เลือกหมวด + ตั้ง Quest Name แล้วกด Start\nPause/Resume ได้\nStop แล้วค่อย Report" },
   name:  { title: "Quest Name (ห้ามซ้ำ)", body: "ชื่อต้องไม่ซ้ำในวันเดียว\nCap base จะนับตามชื่อเควสนี้ (60 นาที/วัน/ชื่อ)" },
   today: { title: "Today", body: "ดูคะแนนรวมวันนี้ + รายการเควส\nExport/Import ใช้สำรองข้อมูล" },
@@ -1937,267 +2592,6 @@ function maybeShowOnboardingFirstTime(){
 }
 
 /* =========================
-  MORNING GATE (FORCED v2)
-========================= */
-let gate = {
-  dateKey: null,
-  startedAt: 0,          // 0 = ยังไม่กดเริ่มวัน
-  limitMin: GATE_RULES.limitMin,
-  mode: GATE_RULES.mode, // soft|hard
-  locked: false,
-  unlocked: false,       // unlock by reason
-  unlockReason: "",      // gets appended to first quest notes
-  snoozeUntil: 0,        // reserved (not used in v2 UI)
-  passed: false,         // PASS once first quest runs >= qualifyMin
-  firstQuestStartAt: 0,  // for debug/consistency
-  doneBannerUntil: 0     // show green DONE for 2s
-};
-
-function saveGate(){ localStorage.setItem(KEY_GATE, JSON.stringify(gate)); }
-
-function gateResetForToday(force=false){
-  const today = localDateKey();
-  gate.dateKey = today;
-  gate.startedAt = 0;
-  gate.limitMin = GATE_RULES.limitMin;
-  gate.mode = GATE_RULES.mode;
-  gate.locked = false;
-  gate.unlocked = false;
-  gate.unlockReason = "";
-  gate.snoozeUntil = 0;
-  gate.passed = false;
-  gate.firstQuestStartAt = 0;
-  gate.doneBannerUntil = 0;
-  if(force) saveGate();
-}
-
-function loadGate(){
-  try{
-    const raw = localStorage.getItem(KEY_GATE);
-    if(raw){
-      const g = JSON.parse(raw);
-      if(g && typeof g==="object") gate = { ...gate, ...g };
-    }
-  }catch{}
-
-  const today = localDateKey();
-  if(gate.dateKey !== today){
-    gateResetForToday(true);
-  }
-
-  // safe defaults
-  if(!Number.isFinite(gate.limitMin) || gate.limitMin<=0) gate.limitMin = GATE_RULES.limitMin;
-  if(gate.mode !== "soft" && gate.mode !== "hard") gate.mode = GATE_RULES.mode;
-
-  // If day already has quests, force PASS (no bullshit)
-  if(isFirstQuestAlreadyDoneToday()){
-    gate.passed = true;
-    gate.locked = false;
-    gate.unlocked = true;
-    saveGate();
-  }
-}
-
-function showGateCover(){
-  el.gateCover.classList.add("show");
-  document.body.style.overflow = "hidden";
-  el.gateCover.setAttribute("aria-hidden","false");
-}
-function hideGateCover(){
-  el.gateCover.classList.remove("show");
-  document.body.style.overflow = "";
-  el.gateCover.setAttribute("aria-hidden","true");
-}
-
-function showGateTopBar(){
-  el.gateTopBar.classList.add("show");
-  document.body.classList.add("gateBarOn");
-}
-function hideGateTopBar(){
-  el.gateTopBar.classList.remove("show");
-  document.body.classList.remove("gateBarOn");
-  el.gateTopBar.classList.remove("done");
-}
-
-function gateTimeLeftSec(){
-  if(!gate.startedAt) return 0;
-  const now = Date.now();
-  const end = gate.startedAt + gate.limitMin*60000;
-  const ms = end - now;
-  return Math.max(0, Math.ceil(ms/1000));
-}
-
-function gateMaybeLock(){
-  if(gate.passed) return;
-  if(isFirstQuestAlreadyDoneToday()) return;
-  if(!gate.startedAt) return;
-
-  const left = gateTimeLeftSec();
-  if(left <= 0){
-    gate.locked = true;
-    saveGate();
-  }
-}
-
-function gateConsumeReasonIfAny(){
-  if(!gate.unlockReason) return "";
-  const msg = `Morning Gate Unlock: ${gate.unlockReason}`;
-  gate.unlockReason = "";
-  saveGate();
-  return msg;
-}
-
-function gateCanStartQuest(){
-  // if already passed or day done -> ok
-  if(gate.passed || isFirstQuestAlreadyDoneToday()) return true;
-
-  // if not started -> NO (cover should block anyway)
-  if(!gate.startedAt) return false;
-
-  // locked and not unlocked -> NO
-  if(gate.locked && !gate.unlocked) return false;
-
-  return true;
-}
-
-function gateEnforceStartButton(){
-  // baseline
-  if(state.status !== "idle"){
-    el.startBtn.disabled = true;
-    return;
-  }
-
-  // if passed / done -> allow
-  if(gate.passed || isFirstQuestAlreadyDoneToday()){
-    el.startBtn.disabled = false;
-    return;
-  }
-
-  // if gate not started -> block
-  if(!gate.startedAt){
-    el.startBtn.disabled = true;
-    return;
-  }
-
-  // locked and not unlocked -> block
-  if(gate.locked && !gate.unlocked){
-    el.startBtn.disabled = true;
-    return;
-  }
-
-  // otherwise allow
-  el.startBtn.disabled = false;
-}
-
-function gateCheckFirstQuestQualify(){
-  if(gate.passed) return;
-  if(!gate.firstQuestStartAt) return;
-  if(state.status !== "running") return;
-
-  const ms = computeElapsedMs();
-  if(ms >= GATE_RULES.qualifyMin * 60000){
-    gate.passed = true;
-    gate.locked = false;
-    gate.unlocked = true; // so even if they stop/discard later, start stays open today
-    gate.doneBannerUntil = Date.now() + 2000;
-    saveGate();
-  }
-}
-
-function gateStartFromCover(){
-  if(isFirstQuestAlreadyDoneToday()){
-    gate.passed = true;
-    gate.unlocked = true;
-    gate.locked = false;
-    saveGate();
-    hideGateCover();
-    hideGateTopBar();
-    return;
-  }
-
-  gate.startedAt = Date.now();
-  gate.locked = false;
-  gate.unlocked = false;
-  gate.unlockReason = "";
-  gate.snoozeUntil = 0;
-  gate.passed = false;
-  gate.firstQuestStartAt = 0;
-  gate.doneBannerUntil = 0;
-  saveGate();
-
-  hideGateCover();
-  showGateTopBar();
-}
-
-function renderGateCoverDisplay(){
-  el.gateLimitDisplay.textContent = `${String(gate.limitMin||10).padStart(2,"0")}:00`;
-  el.gateModeDisplay.textContent = (gate.mode==="hard") ? "HARD" : "SOFT";
-}
-
-function renderGateUX(){
-  const now = Date.now();
-
-  // PASS: if day done OR passed by 3-min rule
-  if(isFirstQuestAlreadyDoneToday() || gate.passed){
-    hideGateCover();
-
-    if(gate.doneBannerUntil && now < gate.doneBannerUntil){
-      showGateTopBar();
-      el.gateTopBar.classList.add("done");
-      el.gateTopTitle.textContent = "Morning Gate • DONE ✅";
-      el.gateTopSub.textContent = `เควสแรกวิ่งครบ ${GATE_RULES.qualifyMin} นาทีแล้ว`;
-      el.gateTopTime.textContent = "DONE";
-      el.gateTopOpenBtn.textContent = "OK";
-    }else{
-      hideGateTopBar();
-    }
-
-    el.gateCoverStatusChip.textContent = "STATUS: PASS";
-    el.gateCoverTime.textContent = "DONE";
-    return;
-  }
-
-  // READY: not started -> show cover, no top bar
-  if(!gate.startedAt){
-    renderGateCoverDisplay();
-    el.gateCoverStatusChip.textContent = "STATUS: READY";
-    el.gateCoverTime.textContent = "--:--";
-    el.gateCoverHint.innerHTML =
-      "กด “เริ่ม Morning Gate” แล้วเริ่มนับถอยหลังทันที<br>เป้าคือ “Start เควสแรก” ให้ทันก่อนหมดเวลา";
-    showGateCover();
-    hideGateTopBar();
-    return;
-  }
-
-  // RUNNING/LOCKED/UNLOCKED -> show top bar
-  showGateTopBar();
-  hideGateCover();
-
-  el.gateTopBar.classList.remove("done");
-
-  const left = gateTimeLeftSec();
-  el.gateTopTime.textContent = formatMMSS(left);
-
-  if(gate.unlocked){
-    el.gateTopTitle.textContent = "Morning Gate • Unlocked ✅";
-    el.gateTopSub.textContent = "เริ่มเควสได้แล้ว (เหตุผลจะติดใน Notes)";
-    el.gateTopOpenBtn.textContent = "Gate";
-    return;
-  }
-
-  if(gate.locked){
-    el.gateTopTitle.textContent = "Morning Gate • LOCKED ❌";
-    el.gateTopSub.textContent = "ต้อง Unlock ก่อนถึงจะ Start เควสได้";
-    el.gateTopOpenBtn.textContent = "Unlock";
-    return;
-  }
-
-  el.gateTopTitle.textContent = "Morning Gate • Running";
-  el.gateTopSub.textContent = "เริ่มเควสแรกให้ทันก่อนหมดเวลา";
-  el.gateTopOpenBtn.textContent = "Gate";
-}
-
-/* =========================
   EVENTS
 ========================= */
 // timer buttons
@@ -2228,6 +2622,51 @@ el.questName.addEventListener("input", ()=>{
     clearNameWarn();
   }
 });
+// gate settings
+if(el.gateEnabled){
+  el.gateEnabled.addEventListener("change", ()=>{
+    gatePref.enabled = (el.gateEnabled.value === "on");
+    saveGatePref();
+
+    if(!gatePref.enabled){
+      // ปิด gate -> ปลดล็อกทั้งวัน
+      gate.passed = true;
+      gate.locked = false;
+      gate.unlocked = true;
+      saveGate();
+    }else{
+      // เปิด gate -> reset แล้วให้มัน auto-start ตาม trigger
+      gateResetForToday(true);
+      gateAutoStartIfNeeded();
+    }
+
+    renderGateSettingsUI();
+    renderGateUX();
+    gateEnforceStartButton();
+    showTimerWarn(gatePref.enabled ? "Morning Gate ON" : "Morning Gate OFF");
+  });
+}
+
+if(el.gateTriggerTime){
+  el.gateTriggerTime.addEventListener("change", ()=>{
+    const hhmm = el.gateTriggerTime.value;
+    const res = setTriggerHHMM(hhmm);
+    if(!res.ok){
+      showTimerWarn(res.msg);
+      el.gateTriggerTime.value = gatePref.triggerHHMM;
+      return;
+    }
+
+    // เปลี่ยน trigger -> reset gate วันนี้ + auto-start ใหม่
+    gateResetForToday(true);
+    gateAutoStartIfNeeded();
+
+    renderGateSettingsUI();
+    renderGateUX();
+    gateEnforceStartButton();
+    showTimerWarn(`Trigger set → ${gatePref.triggerHHMM}`);
+  });
+}
 
 // history
 el.historyBtn.addEventListener("click", openHistory);
@@ -2264,7 +2703,7 @@ el.cutToggleBtn.addEventListener("click", ()=>{
     state.softWarned = false;
     state.softDeadlineTs = 0;
   }else{
-    state.cutMinutes = readCutMinutes(); // may be null
+    state.cutMinutes = readCutMinutes();
   }
   saveState();
   renderCutUI();
@@ -2307,40 +2746,117 @@ el.openOnboardBtn.addEventListener("click", ()=> openOnboarding());
 el.okOnBtn.addEventListener("click", ()=> closeOnboarding(true));
 el.onOverlay.addEventListener("click", (e)=>{ if(e.target===el.onOverlay) closeOnboarding(true); });
 
-// gate cover
+// Gate cover
 el.gateCoverStartBtn.addEventListener("click", gateStartFromCover);
 
-// gate top button
+// Gate top button
 el.gateTopOpenBtn.addEventListener("click", ()=>{
-  // if not started and not passed -> show cover
-  if(!gate.startedAt && !gate.passed && !isFirstQuestAlreadyDoneToday()){
-    showGateCover();
-    renderGateUX();
-    return;
-  }
+  if(!gate.enabled) return;
 
-  // if locked -> prompt unlock reason
+  // locked -> prompt unlock reason
   if(gate.locked && !gate.unlocked){
     const reason = prompt("Unlock Reason (สั้นๆ แต่จริง):", "");
     if(reason && reason.trim()){
       gate.unlocked = true;
       gate.locked = false;
       gate.unlockReason = reason.trim();
+      // IMPORTANT: unlocking kills bonus
+      gate.bonusGranted = true;
       saveGate();
       gateEnforceStartButton();
       renderGateUX();
-      showTimerWarn("Unlock ✅");
+      showTimerWarn("Unlock ✅ (Bonus ถูกตัด)");
     }else{
       showTimerWarn("ต้องใส่เหตุผลก่อน");
     }
     return;
   }
 
-  // if running -> quick hint
-  if(!gate.passed){
-    showTimerWarn(`Gate running — รีบ Start เควสแรก (PASS ที่ ${GATE_RULES.qualifyMin} นาที)`);
+  // running -> show quick status
+  if(gateIsWorldActiveNow() && !gate.passed){
+    const start = new Date(gateWorldStartTs());
+    const dl = new Date(gateWorldDeadlineTs());
+    const pad2 = n => String(n).padStart(2,"0");
+    showTimerWarn(`Deadline: ${pad2(dl.getHours())}:${pad2(dl.getMinutes())} • PASS ที่ ${GATE_RULES.qualifyMin} นาที`);
     return;
   }
+});
+
+// Morning Gate toggle
+el.gateToggleBtn.addEventListener("click", ()=>{
+  if(state.status !== "idle"){
+    showTimerWarn("เปลี่ยน Gate ได้ตอน Idle เท่านั้น");
+    return;
+  }
+
+  gate.enabled = !gate.enabled;
+
+  // turning OFF: hide overlays and release start
+  if(!gate.enabled){
+    hideGateCover();
+    hideGateTopBar();
+  }
+
+  saveGate();
+  renderGateToggleUI();
+  renderGateUX();
+  gateEnforceStartButton();
+  showTimerWarn(gate.enabled ? "Morning Gate: ON" : "Morning Gate: OFF");
+});
+
+// Gate settings
+el.gateTriggerInput.addEventListener("change", ()=>{
+  if(state.status !== "idle") return;
+  const val = el.gateTriggerInput.value;
+  if(!parseHHMM(val)){
+    el.gateTriggerInput.value = gate.triggerHHMM;
+    showTimerWarn("รูปแบบเวลาไม่ถูกต้อง");
+    return;
+  }
+  gate.triggerHHMM = val;
+  // reset day-state (keep enabled) so it doesn't get stuck
+  gateResetForToday(false);
+  saveGate();
+  renderGateUX();
+  gateEnforceStartButton();
+  showTimerWarn("อัปเดต Trigger Time แล้ว");
+});
+
+el.gateLimitInput.addEventListener("input", ()=>{
+  if(state.status !== "idle") return;
+  el.gateLimitInput.value = sanitizeDigitsOnly(el.gateLimitInput.value);
+});
+el.gateLimitInput.addEventListener("change", ()=>{
+  if(state.status !== "idle") return;
+  let n = Number(el.gateLimitInput.value);
+  if(!Number.isFinite(n)) n = GATE_RULES.defaultLimitMin;
+  n = clamp(Math.floor(n), 1, 60);
+  gate.limitMin = n;
+  el.gateLimitInput.value = String(n);
+  gateResetForToday(false);
+  saveGate();
+  renderGateUX();
+  gateEnforceStartButton();
+  showTimerWarn("อัปเดต Limit แล้ว");
+});
+
+/* =========================
+  BACKGROUND FIX (สำคัญ)
+  - กลับมา foreground แล้ว re-check qualify + gate UI
+========================= */
+document.addEventListener("visibilitychange", ()=>{
+  if(!document.hidden){
+    gateMaybeLock();
+    gateCheckFirstQuestQualify();
+    gateEnforceStartButton();
+    renderGateUX();
+  }
+});
+window.addEventListener("focus", ()=>{
+  gateMaybeLock();
+  gateCheckFirstQuestQualify();
+  gateEnforceStartButton();
+  renderGateUX();
 });
 
 /* =========================
@@ -2348,8 +2864,9 @@ el.gateTopOpenBtn.addEventListener("click", ()=>{
 ========================= */
 function boot(){
   loadState();
+  loadGatePref();
   loadGate();
-
+  gateAutoStartIfNeeded();
   // restore running safety
   if(state.status==="running" && !state.startTs){
     state.status="paused";
@@ -2369,10 +2886,12 @@ function boot(){
   updateStreakAfterChange();
   maybeShowOnboardingFirstTime();
 
-  // initial gate UX + enforce start
+  // initial gate render
+  renderGateToggleUI();
   renderGateUX();
   gateEnforceStartButton();
-
+    renderGateSettingsUI();
+  
   startTick();
 }
 boot();
