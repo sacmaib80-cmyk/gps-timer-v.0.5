@@ -1785,11 +1785,17 @@ function renderGateCoverDisplay(){
   el.gateLimitDisplay.textContent = `${GATE_RULES.limitMin}m`;
   el.gateQualifyDisplay.textContent = `${GATE_RULES.qualifyMin}m`;
 }
-
-/* ✅ ตามที่สั่ง: การ์ด settings โผล่เฉพาะตอน ON */
 function renderGateSettingsUI(){
-el.gateSettingsBox.style.display =
-  (gateCfg.enabled || !gateCfg.triggerHHMM) ? "block" : "none";
+
+  const shouldShow =
+    gateCfg.enabled || !gateCfg.triggerHHMM;
+
+  el.gateSettingsBox.style.display =
+    shouldShow ? "block" : "none";
+
+  if(!gateCfg.enabled && gateCfg.triggerHHMM){
+    return;
+  } 
   // ถ้า OFF ก็จบ
   if(!gateCfg.enabled) return;
 
