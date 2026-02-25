@@ -1478,12 +1478,6 @@ function loadGateCfg(){
   if(!Number.isFinite(gateCfg.lockedUntil)) gateCfg.lockedUntil = 0;
   if(gateCfg.effectiveFrom && !/^\d{4}-\d{2}-\d{2}$/.test(gateCfg.effectiveFrom)) gateCfg.effectiveFrom = null;
 
-  // if not set trigger -> must be OFF (กัน “บังคับแต่ไม่ตั้ง”)
-  if(!gateCfg.triggerHHMM){
-    gateCfg.enabled = false;
-    gateCfg.effectiveFrom = null;
-    gateCfg.lockedUntil = 0;
-  }
 
   saveGateCfg(); // normalize
 }
